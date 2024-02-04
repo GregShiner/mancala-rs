@@ -1,4 +1,6 @@
-use crate::game::{Game, GameState, PlayerSide};
+use crate::game::{Game, GameState, PlayerSide, PocketIndex};
+
+pub type SequenceTreeIndex = usize;
 
 /*
 The Sequence tree is not represented as a tree in memory, but as a vector of nodes.
@@ -24,16 +26,15 @@ struct SequenceTree { // The tree itself
 
 /// A move that can be made in the game
 #[derive(Clone, Copy)]
-#[allow(dead_code)]
-struct Move { 
+pub struct Move { 
     /// The pocket that the move is made from
-    pocket: usize, 
+    pocket: PocketIndex, 
     /// Resulting score of the move
-    score: i32,
+    pub score: i32,
     /// Whether or not the player gets a free turn
     free_turn: bool,
     /// The resulting game state after the move is made
-    game: Game,
+    pub game: Game,
 }
 
 /// Tree containing all possible sequences of moves for a given turn
@@ -41,35 +42,40 @@ pub struct SequenceTree {
     /// The nodes in the tree
     pub nodes: Vec<SequenceNode>,
     /// The indices of the leaf nodes in the nodes vector; used to find the end of a sequence
-    leaf_nodes: Vec<usize>,
+    pub leaf_nodes: Vec<SequenceTreeIndex>,
     /// The indices of the game over nodes in the nodes vector; used to find game ending sequences
-    game_over_nodes: Vec<usize>,
+    pub game_over_nodes: Vec<SequenceTreeIndex>,
 }
 
+#[derive(Clone)]
 /// A variant of SequenceNodeEnum that represents a move node
-struct MoveNode {
+pub struct MoveNode {
     /// The move that this node represents
-    r#move: Move,
+    pub r#move: Move,
     /// The index of the parent node in the nodes vector
-    parent: usize,
+    parent: SequenceTreeIndex,
 }
 
+#[derive(Clone)]
 /// An enum that represents the different types of nodes in the sequence tree
-enum SequenceNodeEnum {
+pub enum SequenceNodeEnum {
     /// The root node which contains the initial game state
     Root(Game),
     /// A node that represents a move
     Move(MoveNode),
 }
 
+#[derive(Clone)]
 /// A node in the sequence tree
 pub struct SequenceNode {
     /// The data contained in the node (either a root node or a move node)
-    node_enum: SequenceNodeEnum,
+    pub node_enum: SequenceNodeEnum,
     /// Indices of the children of the node in the nodes vector
-    children: Vec<usize>,
+    children: Vec<SequenceTreeIndex>,
     /// Depth of the node in the tree (calculated from the root node)
     depth: usize,
+    /// Path to the node from the root node (usize indices of the nodes in the nodes vector)
+    pub path: Vec<SequenceTreeIndex>,
 }
 
 impl Game {
@@ -98,6 +104,7 @@ impl SequenceTree {
             node_enum: SequenceNodeEnum::Root(game),
             children: Vec::new(),
             depth: 0,
+            path: Vec::new(),
         };
         SequenceTree { 
             nodes: vec![root], 
@@ -107,7 +114,7 @@ impl SequenceTree {
     }
 
     /// for each move, create a new node, push it to the nodes vector, and add the index to the parent's children vector
-    fn create_children(&mut self, moves: Vec<Move>, parent_index: usize) {
+    fn create_children(&mut self, moves: Vec<Move>, parent_index: SequenceTreeIndex) {
         for r#move in moves {
             let node = SequenceNode { 
                 node_enum: SequenceNodeEnum::Move(MoveNode { 
@@ -119,6 +126,11 @@ impl SequenceTree {
                     SequenceNodeEnum::Root(_) => 0,
                     SequenceNodeEnum::Move(ref move_node) => self.nodes[move_node.parent].depth + 1,
                 },
+                path: {
+                    let mut path = self.nodes[parent_index].path.clone();
+                    path.push(parent_index);
+                    path
+                }
             };
             self.nodes.push(node);
             let child_index = self.nodes.len() - 1;
@@ -134,7 +146,8 @@ impl SequenceTree {
     }
 
     /// Recursively generate the sequence tree
-    pub fn generate_tree(&mut self, player_turn: PlayerSide, optimize_for: PlayerSide, parent_index: usize) {
+    pub fn generate_tree(&mut self, player_turn: PlayerSide, parent_index: Option<SequenceTreeIndex>) {
+        let parent_index = parent_index.unwrap_or(0);
         let game = match self.nodes[parent_index].node_enum {
             SequenceNodeEnum::Root(ref game) => game.clone(),
             SequenceNodeEnum::Move(ref move_node) => move_node.r#move.game.clone(),
@@ -150,11 +163,88 @@ impl SequenceTree {
             let child = &self.nodes[*child_index];
             match child.node_enum {
                 SequenceNodeEnum::Move(_) => {
-                    self.generate_tree(player_turn, optimize_for, *child_index);
+                    self.generate_tree(player_turn, Some(*child_index));
                 },
                 // This realistically should never happen since each child created will always bs the Move variant
                 _ => panic!("Child node is not a move node"),
             }
         });
+    }
+
+    pub fn get_move_sequence(&self, node_index: SequenceTreeIndex) -> Vec<PocketIndex> {
+        let mut move_sequence = Vec::new();
+        for index in &self.nodes[node_index].path {
+            match self.nodes[*index].node_enum {
+                SequenceNodeEnum::Move(ref move_node) => move_sequence.push(move_node.r#move.pocket),
+                _ => (),
+            }
+        }
+        move_sequence
+    }
+
+    pub fn get_best_sequence(&self, eval_method: &EvalMethod) -> Vec<PocketIndex> {
+        let mut best_sequence = Vec::new();
+        let mut best_evaluation = f32::NEG_INFINITY;
+        for index in &self.leaf_nodes {
+            let game = match self.nodes[*index].node_enum {
+                SequenceNodeEnum::Move(ref move_node) => move_node.r#move.game.clone(),
+                _ => panic!("Leaf node is not a move node"),
+            };
+            let evaluation = evaluate(&game, eval_method);
+            if evaluation > best_evaluation {
+                best_evaluation = evaluation;
+                best_sequence = self.get_move_sequence(*index);
+            }
+        }
+        best_sequence
+    }
+}
+
+#[deprecated]
+struct Sequence {
+    node: SequenceNode,
+    evaluation: f32
+}
+
+// TODO: Remove
+#[deprecated]
+pub struct MoveSet {
+    sequences: Vec<Sequence>
+}
+
+pub enum EvalMethod {
+    ByDifference
+}
+
+/// Evaluate a game state by the difference in score between the two players
+fn eval_by_difference(game: &Game) -> f32 {
+    game.board.get_stones((6, PlayerSide::Player)) as f32 - game.board.get_stones((6, PlayerSide::Opponent)) as f32
+}
+
+pub fn evaluate(game: &Game, eval_method: &EvalMethod) -> f32 {
+    match eval_method {
+        EvalMethod::ByDifference => eval_by_difference(game),
+    }
+}
+
+// TODO: Remove
+impl MoveSet {
+    fn from_sequence_tree(tree: &SequenceTree, eval_method: &EvalMethod) -> Self {
+        let mut sequences = Vec::new();
+        for leaf_index in &tree.leaf_nodes {
+            let node = tree.nodes[*leaf_index].clone();
+            let mut sequence = Sequence {
+                node: node.clone(),
+                evaluation: match node.node_enum {
+                    SequenceNodeEnum::Move(ref move_node) => {
+                        evaluate(&move_node.r#move.game, eval_method)
+                    },
+                    // This realistically should never happen since each child created will always bs the Move variant
+                    _ => panic!("Leaf node is not a move node"),
+                },
+            };
+            sequences.push(sequence);
+        }
+        MoveSet { sequences }
     }
 }

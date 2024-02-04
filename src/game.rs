@@ -1,8 +1,9 @@
 use std::fmt::{Display, Debug};
 
-type PocketLocation = (usize, PlayerSide);
+pub type PocketIndex = usize;
+pub type PocketLocation = (PocketIndex, PlayerSide);
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum PlayerSide {
     Player,
     Opponent
@@ -25,7 +26,7 @@ impl Display for PlayerSide {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Board {
     pub player_pockets: [i32; 7],
     pub opponent_pockets: [i32; 7],
@@ -42,7 +43,20 @@ impl Default for Board {
     }
 }
 
+impl Default for Game {
+    fn default() -> Self {
+        Game { board: Board::default(), game_state: GameState::InProgress }
+    }
+}
+
 impl Board {
+    pub fn new(player_pockets: [i32; 7], opponent_pockets: [i32; 7], player_turn: PlayerSide) -> Self {
+        Board {
+            player_pockets: player_pockets,
+            opponent_pockets: opponent_pockets,
+            player_turn: player_turn
+        }
+    }
     fn switch_player(&mut self) {
         self.player_turn = opposite_player(self.player_turn)
     }
@@ -53,14 +67,6 @@ impl Board {
             PlayerSide::Opponent => self.opponent_pockets[pocket.0]
         }
     }
-    /*
-    fn stone_ref(&mut self, pocket:usize, player_side:PlayerSide) -> &mut i32 {
-        match player_side {
-            PlayerSide::Player => &mut self.player_pockets[pocket],
-            PlayerSide::Opponent => &mut self.opponent_pockets[pocket]
-        }
-    }
-    */
 
     fn pop_stones(&mut self, pocket:PocketLocation) -> i32 {
         let stones = self.get_stones(pocket);
@@ -104,7 +110,7 @@ impl Board {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Game {
     pub board: Board,
     pub game_state: GameState
@@ -123,8 +129,8 @@ impl Debug for Game {
 }
 
 impl Game {
-    pub fn new() -> Self {
-        Game { board: Board::default(), game_state: GameState::InProgress }
+    pub fn new(board: Board) -> Self {
+        Game { board: board, game_state: GameState::InProgress }
     }
     pub fn play_move(&mut self, pocket:PocketLocation) -> Result<(), InvalidPocketError> {
         /*
@@ -157,12 +163,14 @@ impl Game {
             }
             (current_pocket, side) = self.board.pickup_stones((current_pocket, side));
         }
+        // TODO: Reenable technical win check
         self.game_state = match self.check_for_game_end() {
             Some(winner) => GameState::Over(GameOver::Win(winner)),
             None => match self.check_for_technical_win() {
                 Some(winner) => GameState::Over(GameOver::TechnicalWin(winner)),
                 None => GameState::InProgress
             }
+            // None => GameState::InProgress
         };
         Ok(())
     }
@@ -198,19 +206,19 @@ impl Game {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GameState {
     InProgress,
     Over(GameOver),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GameOver {
     Win(Winner),
     TechnicalWin(PlayerSide),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Winner {
     Player,
     Opponent,
