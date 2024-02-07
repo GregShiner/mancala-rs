@@ -252,9 +252,17 @@ impl Debug for DebugGame {
         }
         let opponent_store_str = format!("    {: >4}  {}", mark((6, PlayerSide::Opponent), self.selected_pocket_location), self.board.opponent_pockets[6]);
         let player_store_str = format!("    {: >4}  {}", mark((6, PlayerSide::Player), self.selected_pocket_location), self.board.player_pockets[6]);
-        let opponent_pockets_str = (0..6).rev().map(|i| format!("{: >4}  {}", mark((i, PlayerSide::Opponent), self.selected_pocket_location), self.board.opponent_pockets[i])).collect::<Vec<String>>();
-        let player_pockets_str = (0..6).map(|i| format!("{: >4}  {}", mark((i, PlayerSide::Player), self.selected_pocket_location), self.board.player_pockets[i])).collect::<Vec<String>>();
-        let pocket_lines = (0..6).map(|i| format!("{}  {}", player_pockets_str[i], opponent_pockets_str[i])).collect::<Vec<String>>().join("\n");
+        let opponent_pockets_str = (0..6)
+            .rev()
+            .map(|i| format!("{: >4}  {}", mark((i, PlayerSide::Opponent), self.selected_pocket_location), self.board.opponent_pockets[i]))
+            .collect::<Vec<String>>();
+        let player_pockets_str = (0..6)
+            .map(|i| format!("{: >4}  {}", mark((i, PlayerSide::Player), self.selected_pocket_location), self.board.player_pockets[i]))
+            .collect::<Vec<String>>();
+        let pocket_lines = (0..6)
+            .map(|i| format!("{}  {}", player_pockets_str[i], opponent_pockets_str[i]))
+            .collect::<Vec<String>>()
+            .join("\n");
         let stones_str = if let Some(stones) = self.stones {
             format!("Stones remaining: {}\n", stones)
         } else {
