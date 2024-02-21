@@ -123,7 +123,7 @@ impl SequenceTree {
                 }),
                 children: Vec::new(), 
                 depth: match self.nodes[parent_index].node_enum {
-                    SequenceNodeEnum::Root(_) => 0,
+                    SequenceNodeEnum::Root(_) => 1,
                     SequenceNodeEnum::Move(ref move_node) => self.nodes[move_node.parent].depth + 1,
                 },
                 path: {
@@ -174,24 +174,43 @@ impl SequenceTree {
     pub fn get_move_sequence(&self, node_index: SequenceTreeIndex) -> Vec<PocketIndex> {
         let mut move_sequence = Vec::new();
         for index in &self.nodes[node_index].path {
-            match self.nodes[*index].node_enum {
-                SequenceNodeEnum::Move(ref move_node) => move_sequence.push(move_node.r#move.pocket),
-                _ => (),
+            if let SequenceNodeEnum::Move(ref move_node) = self.nodes[*index].node_enum {
+                move_sequence.push(move_node.r#move.pocket)
             }
         }
+        move_sequence.push(match self.nodes[node_index].node_enum {
+            SequenceNodeEnum::Move(ref move_node) => move_node.r#move.pocket,
+            _ => panic!("Leaf node is not a move node"),
+        });
         move_sequence
     }
 
-    pub fn get_best_sequence(&self, eval_method: &EvalMethod) -> Vec<PocketIndex> {
+    pub fn get_best_sequence(&self, eval_method: &EvalMethod, prefer_win: bool, maximize: bool) -> Vec<PocketIndex> {
         let mut best_sequence = Vec::new();
-        let mut best_evaluation = f32::NEG_INFINITY;
-        for index in &self.leaf_nodes {
+        let mut best_evaluation = match maximize {
+            true => f32::NEG_INFINITY,
+            false => f32::INFINITY,
+        };
+        let comparison = match maximize {
+            true => f32::gt,
+            false => f32::lt,
+        };
+        let filtered_leaf_nodes = match prefer_win {
+            true => 
+                if self.game_over_nodes.is_empty() {
+                    &self.leaf_nodes
+                } else {
+                    &self.game_over_nodes
+                },
+            false => &self.leaf_nodes,
+        };
+        for index in filtered_leaf_nodes {
             let game = match self.nodes[*index].node_enum {
-                SequenceNodeEnum::Move(ref move_node) => move_node.r#move.game.clone(),
+                SequenceNodeEnum::Move(ref move_node) => move_node.r#move.game,
                 _ => panic!("Leaf node is not a move node"),
             };
             let evaluation = evaluate(&game, eval_method);
-            if evaluation > best_evaluation {
+            if comparison(&evaluation, &best_evaluation) {
                 best_evaluation = evaluation;
                 best_sequence = self.get_move_sequence(*index);
             }

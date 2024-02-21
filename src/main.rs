@@ -153,7 +153,7 @@ fn main() {
             "f" => {
                 let mut test_game = game.clone();
                 println!("Finding best move...");
-                let best_sequence = tree.get_best_sequence(&EvalMethod::ByDifference);
+                let best_sequence = tree.get_best_sequence(&EvalMethod::ByDifference, true, true);
                 for pocket in best_sequence {
                     print!("{} ", pocket);
                     test_game.play_move((pocket, test_game.board.player_turn)).unwrap();
