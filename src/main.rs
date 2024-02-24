@@ -1,34 +1,17 @@
 use std::io::Write;
 
 use crate::game::{Game, PlayerSide};
-use crate::solver::{SequenceTree, SequenceNode, SequenceNodeEnum, EvalMethod};
+use crate::solver::{SequenceTree, EvalMethod};
 
 pub mod game;
 pub mod solver;
 pub mod minimax;
 pub mod qlearning_move;
 
-fn max_score_leaf(tree: &SequenceTree) -> SequenceNode {
-    let mut max_score = 0;
-    let mut max_score_leaf = &tree.nodes[0];
-    for leaf_index in &tree.leaf_nodes {
-        let leaf = &tree.nodes[*leaf_index];
-        let score = match leaf.node_enum {
-            SequenceNodeEnum::Move(ref move_node) => move_node.r#move.score,
-            _ => 0,
-        };
-        if score > max_score {
-            max_score = score;
-            max_score_leaf = leaf;
-        }
-    }
-    max_score_leaf.clone()
-}
-
 fn main() {
     let mut game = Game::default();
     let mut stash = Game::default();
-    let mut tree = SequenceTree::new(game.clone());
+    let mut tree = SequenceTree::new(game); // Check if game needs to be cloned
     tree.generate_tree(PlayerSide::Player, None);
     // get user input
     //println!("{} nodes", tree.nodes.len());
@@ -98,18 +81,18 @@ fn main() {
                     "2" => PlayerSide::Opponent,
                     &_ => PlayerSide::Player
                 };
-                game = Game::new(game::Board { player_pockets: player_pockets, opponent_pockets: opponent_pockets, player_turn: player_turn })
+                game = Game::new(game::Board { player_pockets, opponent_pockets, player_turn });
             },
             "s" => {
-                stash = game.clone();
+                stash = game;
                 println!("Stashed game");
             },
             "l" => {
-                game = stash.clone();
+                game = stash;
                 println!("Loaded game");
             },
             "t" => {
-                let mut test_game = game.clone();
+                let mut test_game = game;
                 println!("Enter the pocket to test:");
                 let mut input = String::new();
                 print!("> ");
@@ -147,11 +130,11 @@ fn main() {
             },
             "g" => {
                 println!("Generating sequence tree...");
-                tree = SequenceTree::new(game.clone());
+                tree = SequenceTree::new(game);
                 tree.generate_tree(PlayerSide::Player, None);
             },
             "f" => {
-                let mut test_game = game.clone();
+                let mut test_game = game;
                 println!("Finding best move...");
                 let best_sequence = tree.get_best_sequence(&EvalMethod::ByDifference, true, true);
                 for pocket in best_sequence {

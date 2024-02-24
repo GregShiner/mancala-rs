@@ -1,4 +1,5 @@
 use std::fmt::{Display, Debug};
+use std::cmp::Ordering;
 
 pub type PocketIndex = usize;
 pub type PocketLocation = (PocketIndex, PlayerSide);
@@ -52,11 +53,12 @@ impl Default for Game {
 impl Board {
     pub fn new(player_pockets: [i32; 7], opponent_pockets: [i32; 7], player_turn: PlayerSide) -> Self {
         Board {
-            player_pockets: player_pockets,
-            opponent_pockets: opponent_pockets,
-            player_turn: player_turn
+            player_pockets,
+            opponent_pockets,
+            player_turn
         }
     }
+
     fn switch_player(&mut self) {
         self.player_turn = opposite_player(self.player_turn)
     }
@@ -130,7 +132,7 @@ impl Debug for Game {
 
 impl Game {
     pub fn new(board: Board) -> Self {
-        Game { board: board, game_state: GameState::InProgress }
+        Game { board, game_state: GameState::InProgress }
     }
     pub fn play_move(&mut self, pocket:PocketLocation) -> Result<(), InvalidPocketError> {
         /*
@@ -181,12 +183,10 @@ impl Game {
             return None;
         }
         // The winner is the player with the most stones in their store
-        if self.board.player_pockets[6] > self.board.opponent_pockets[6] {
-            Some(Winner::Player)
-        } else if self.board.player_pockets[6] < self.board.opponent_pockets[6] {
-            Some(Winner::Opponent)
-        } else {
-            Some(Winner::Tie)
+        match self.board.player_pockets[6].cmp(&self.board.opponent_pockets[6]) {
+            Ordering::Greater => Some(Winner::Player),
+            Ordering::Less => Some(Winner::Opponent),
+            Ordering::Equal => Some(Winner::Tie)
         }
     }
 

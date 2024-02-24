@@ -85,13 +85,13 @@ impl Game {
             if self.board.get_stones((pocket, self.board.player_turn)) == 0 {
                 continue;
             }
-            let mut game = self.clone();
+            let mut game = *self; // May need to be cloned
             game.play_move((pocket, self.board.player_turn)).expect("Invalid move");
             moves.push(Move {
                 pocket,
                 score: game.board.get_stones((6, self.board.player_turn)),
                 free_turn: game.board.player_turn == self.board.player_turn,
-                game: game.clone(),
+                game, // May need to be cloned
             });
         }
         moves
@@ -149,8 +149,8 @@ impl SequenceTree {
     pub fn generate_tree(&mut self, player_turn: PlayerSide, parent_index: Option<SequenceTreeIndex>) {
         let parent_index = parent_index.unwrap_or(0);
         let game = match self.nodes[parent_index].node_enum {
-            SequenceNodeEnum::Root(ref game) => game.clone(),
-            SequenceNodeEnum::Move(ref move_node) => move_node.r#move.game.clone(),
+            SequenceNodeEnum::Root(ref game) => *game, // May need to be cloned
+            SequenceNodeEnum::Move(ref move_node) => move_node.r#move.game, // May need to be cloned
         };
         // base case: if the game or turn is over, return
         if game.game_state != GameState::InProgress || game.board.player_turn != player_turn {
@@ -219,18 +219,6 @@ impl SequenceTree {
     }
 }
 
-#[deprecated]
-struct Sequence {
-    node: SequenceNode,
-    evaluation: f32
-}
-
-// TODO: Remove
-#[deprecated]
-pub struct MoveSet {
-    sequences: Vec<Sequence>
-}
-
 pub enum EvalMethod {
     ByDifference
 }
@@ -246,24 +234,3 @@ pub fn evaluate(game: &Game, eval_method: &EvalMethod) -> f32 {
     }
 }
 
-// TODO: Remove
-impl MoveSet {
-    fn from_sequence_tree(tree: &SequenceTree, eval_method: &EvalMethod) -> Self {
-        let mut sequences = Vec::new();
-        for leaf_index in &tree.leaf_nodes {
-            let node = tree.nodes[*leaf_index].clone();
-            let mut sequence = Sequence {
-                node: node.clone(),
-                evaluation: match node.node_enum {
-                    SequenceNodeEnum::Move(ref move_node) => {
-                        evaluate(&move_node.r#move.game, eval_method)
-                    },
-                    // This realistically should never happen since each child created will always bs the Move variant
-                    _ => panic!("Leaf node is not a move node"),
-                },
-            };
-            sequences.push(sequence);
-        }
-        MoveSet { sequences }
-    }
-}
