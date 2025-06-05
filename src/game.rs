@@ -1,5 +1,5 @@
-use std::fmt::{Display, Debug};
 use std::cmp::Ordering;
+use std::fmt::{Debug, Display};
 
 pub type PocketIndex = usize;
 pub type PocketLocation = (PocketIndex, PlayerSide);
@@ -7,14 +7,14 @@ pub type PocketLocation = (PocketIndex, PlayerSide);
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum PlayerSide {
     Player,
-    Opponent
+    Opponent,
 }
 
 fn opposite_player(player_turn: PlayerSide) -> PlayerSide {
     // flip to opposite player
     match player_turn {
         PlayerSide::Player => PlayerSide::Opponent,
-        PlayerSide::Opponent => PlayerSide::Player
+        PlayerSide::Opponent => PlayerSide::Player,
     }
 }
 
@@ -22,7 +22,7 @@ impl Display for PlayerSide {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             PlayerSide::Player => write!(f, "Player"),
-            PlayerSide::Opponent => write!(f, "Opponent")
+            PlayerSide::Opponent => write!(f, "Opponent"),
         }
     }
 }
@@ -31,31 +31,38 @@ impl Display for PlayerSide {
 pub struct Board {
     pub player_pockets: [i32; 7],
     pub opponent_pockets: [i32; 7],
-    pub player_turn: PlayerSide // either Player or Opponent
+    pub player_turn: PlayerSide, // either Player or Opponent
 }
 
 impl Default for Board {
     fn default() -> Self {
-        Board { 
-            player_pockets: [4,4,4,4,4,4,0],
-            opponent_pockets: [4,4,4,4,4,4,0],
-            player_turn: PlayerSide::Player
+        Board {
+            player_pockets: [4, 4, 4, 4, 4, 4, 0],
+            opponent_pockets: [4, 4, 4, 4, 4, 4, 0],
+            player_turn: PlayerSide::Player,
         }
     }
 }
 
 impl Default for Game {
     fn default() -> Self {
-        Game { board: Board::default(), game_state: GameState::InProgress }
+        Game {
+            board: Board::default(),
+            game_state: GameState::InProgress,
+        }
     }
 }
 
 impl Board {
-    pub fn new(player_pockets: [i32; 7], opponent_pockets: [i32; 7], player_turn: PlayerSide) -> Self {
+    pub fn new(
+        player_pockets: [i32; 7],
+        opponent_pockets: [i32; 7],
+        player_turn: PlayerSide,
+    ) -> Self {
         Board {
             player_pockets,
             opponent_pockets,
-            player_turn
+            player_turn,
         }
     }
 
@@ -63,30 +70,30 @@ impl Board {
         self.player_turn = opposite_player(self.player_turn)
     }
 
-    pub fn get_stones(self, pocket:PocketLocation) -> i32 {
+    pub fn get_stones(self, pocket: PocketLocation) -> i32 {
         match pocket.1 {
             PlayerSide::Player => self.player_pockets[pocket.0],
-            PlayerSide::Opponent => self.opponent_pockets[pocket.0]
+            PlayerSide::Opponent => self.opponent_pockets[pocket.0],
         }
     }
 
-    fn pop_stones(&mut self, pocket:PocketLocation) -> i32 {
+    fn pop_stones(&mut self, pocket: PocketLocation) -> i32 {
         let stones = self.get_stones(pocket);
         match pocket.1 {
             PlayerSide::Player => self.player_pockets[pocket.0] = 0,
-            PlayerSide::Opponent => self.opponent_pockets[pocket.0] = 0
+            PlayerSide::Opponent => self.opponent_pockets[pocket.0] = 0,
         }
         stones
     }
 
-    fn increment_stones(&mut self, pocket:PocketLocation) {
+    fn increment_stones(&mut self, pocket: PocketLocation) {
         match pocket.1 {
             PlayerSide::Player => self.player_pockets[pocket.0] += 1,
-            PlayerSide::Opponent => self.opponent_pockets[pocket.0] += 1
+            PlayerSide::Opponent => self.opponent_pockets[pocket.0] += 1,
         }
     }
 
-    fn pickup_stones(&mut self, pocket:PocketLocation) -> PocketLocation {
+    fn pickup_stones(&mut self, pocket: PocketLocation) -> PocketLocation {
         let mut stones = self.pop_stones(pocket);
         let mut current_pocket = pocket.0;
         let mut side = pocket.1;
@@ -115,7 +122,7 @@ impl Board {
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Game {
     pub board: Board,
-    pub game_state: GameState
+    pub game_state: GameState,
 }
 
 impl Debug for Game {
@@ -124,7 +131,7 @@ impl Debug for Game {
             board: self.board,
             game_state: Some(self.game_state),
             selected_pocket_location: None,
-            stones: None
+            stones: None,
         };
         write!(f, "{:?}", debug_game)
     }
@@ -132,11 +139,14 @@ impl Debug for Game {
 
 impl Game {
     pub fn new(board: Board) -> Self {
-        Game { board, game_state: GameState::InProgress }
+        Game {
+            board,
+            game_state: GameState::InProgress,
+        }
     }
-    pub fn play_move(&mut self, pocket:PocketLocation) -> Result<(), InvalidPocketError> {
+    pub fn play_move(&mut self, pocket: PocketLocation) -> Result<(), InvalidPocketError> {
         /*
-        A move consists of picking up the stones in a pocket and dropping them into the next pockets. 
+        A move consists of picking up the stones in a pocket and dropping them into the next pockets.
         When the last stone is dropped, 3 things can happen
         1. If the last stone is dropped in the player's store, the player gets another turn
         2. If the last stone is dropped in a non-empty pocket, on either side, the player picks up the stones in that pocket and drops them again
@@ -145,55 +155,61 @@ impl Game {
         if pocket.1 != self.board.player_turn {
             return Err(InvalidPocketError::WrongPlayer);
         }
+        // usize can't go below 0 so only check the positive side
+        if pocket.0 > 5 {
+            return Err(InvalidPocketError::OutOfBoundsPocket);
+        }
         if self.board.get_stones(pocket) == 0 {
             return Err(InvalidPocketError::EmptyPocket);
         }
         if pocket.0 == 6 {
             return Err(InvalidPocketError::StorePocket);
         }
-        if !(0..6).contains(&pocket.0) {
-            return Err(InvalidPocketError::OutOfBoundsPocket);
-        }
         let (mut current_pocket, mut side) = self.board.pickup_stones(pocket);
         loop {
             if side == self.board.player_turn && current_pocket == 6 {
                 break;
-            } 
+            }
             if self.board.get_stones((current_pocket, side)) == 1 {
                 self.board.switch_player();
                 break;
             }
             (current_pocket, side) = self.board.pickup_stones((current_pocket, side));
         }
-        // TODO: Reenable technical win check
         self.game_state = match self.check_for_game_end() {
             Some(winner) => GameState::Over(GameOver::Win(winner)),
             None => match self.check_for_technical_win() {
                 Some(winner) => GameState::Over(GameOver::TechnicalWin(winner)),
-                None => GameState::InProgress
-            }
-            // None => GameState::InProgress
+                None => GameState::InProgress,
+            },
         };
         Ok(())
     }
 
     fn check_for_game_end(&self) -> Option<Winner> {
         // if both sides still have some stones, the game is not over
-        if self.board.player_pockets[0..6].iter().any(|&pocket| pocket != 0) && self.board.opponent_pockets[0..6].iter().any(|&pocket| pocket != 0) {
+        if self.board.player_pockets[0..6]
+            .iter()
+            .any(|&pocket| pocket != 0)
+            && self.board.opponent_pockets[0..6]
+                .iter()
+                .any(|&pocket| pocket != 0)
+        {
             return None;
         }
         // The winner is the player with the most stones in their store
         match self.board.player_pockets[6].cmp(&self.board.opponent_pockets[6]) {
             Ordering::Greater => Some(Winner::Player),
             Ordering::Less => Some(Winner::Opponent),
-            Ordering::Equal => Some(Winner::Tie)
+            Ordering::Equal => Some(Winner::Tie),
         }
     }
 
     fn check_for_technical_win(&self) -> Option<PlayerSide> {
         // Checks if there are not enough stones left to change the current leader
         // get the remaining stones in the pockets (not including the stores)
-        let remaining_stones: i32 = self.board.player_pockets[0..6].iter().sum::<i32>() + self.board.opponent_pockets[0..6].iter().sum::<i32>();
+        let remaining_stones: i32 = self.board.player_pockets[0..6].iter().sum::<i32>()
+            + self.board.opponent_pockets[0..6].iter().sum::<i32>();
         let player_score = self.board.player_pockets[6];
         let opponent_score = self.board.opponent_pockets[6];
         // if the remaining stones plus the player's score is less than the opponent's score, the opponent wins
@@ -222,15 +238,16 @@ pub enum GameOver {
 pub enum Winner {
     Player,
     Opponent,
-    Tie
+    Tie,
 }
 
 #[derive(Debug)]
-pub enum InvalidPocketError { // Error type for use in board.move
-    EmptyPocket, // pocket is empty
-    WrongPlayer, // pocket is on the wrong side
-    StorePocket, // pocket is a store
-    OutOfBoundsPocket // pocket is out of bounds
+pub enum InvalidPocketError {
+    // Error type for use in board.move
+    EmptyPocket,       // pocket is empty
+    WrongPlayer,       // pocket is on the wrong side
+    StorePocket,       // pocket is a store
+    OutOfBoundsPocket, // pocket is out of bounds
 }
 
 struct DebugGame {
@@ -242,7 +259,10 @@ struct DebugGame {
 
 impl Debug for DebugGame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        fn mark(pocket:PocketLocation, selected_pocket_location:Option<PocketLocation>) -> String {
+        fn mark(
+            pocket: PocketLocation,
+            selected_pocket_location: Option<PocketLocation>,
+        ) -> String {
             if let Some(selected_pocket_location) = selected_pocket_location {
                 if selected_pocket_location == pocket {
                     return "->".to_string();
@@ -250,14 +270,34 @@ impl Debug for DebugGame {
             }
             "  ".to_string()
         }
-        let opponent_store_str = format!("    {: >4}  {}", mark((6, PlayerSide::Opponent), self.selected_pocket_location), self.board.opponent_pockets[6]);
-        let player_store_str = format!("    {: >4}  {}", mark((6, PlayerSide::Player), self.selected_pocket_location), self.board.player_pockets[6]);
+        let opponent_store_str = format!(
+            "    {: >4}  {}",
+            mark((6, PlayerSide::Opponent), self.selected_pocket_location),
+            self.board.opponent_pockets[6]
+        );
+        let player_store_str = format!(
+            "    {: >4}  {}",
+            mark((6, PlayerSide::Player), self.selected_pocket_location),
+            self.board.player_pockets[6]
+        );
         let opponent_pockets_str = (0..6)
             .rev()
-            .map(|i| format!("{: >4}  {}", mark((i, PlayerSide::Opponent), self.selected_pocket_location), self.board.opponent_pockets[i]))
+            .map(|i| {
+                format!(
+                    "{: >4}  {}",
+                    mark((i, PlayerSide::Opponent), self.selected_pocket_location),
+                    self.board.opponent_pockets[i]
+                )
+            })
             .collect::<Vec<String>>();
         let player_pockets_str = (0..6)
-            .map(|i| format!("{: >4}  {}", mark((i, PlayerSide::Player), self.selected_pocket_location), self.board.player_pockets[i]))
+            .map(|i| {
+                format!(
+                    "{: >4}  {}",
+                    mark((i, PlayerSide::Player), self.selected_pocket_location),
+                    self.board.player_pockets[i]
+                )
+            })
             .collect::<Vec<String>>();
         let pocket_lines = (0..6)
             .map(|i| format!("{}  {}", player_pockets_str[i], opponent_pockets_str[i]))
@@ -273,6 +313,15 @@ impl Debug for DebugGame {
         } else {
             "".to_string()
         };
-        write!(f, "{}\n{}\n{}\n\n{}'s turn\n{}{}", opponent_store_str, pocket_lines, player_store_str, self.board.player_turn, stones_str, state_str)
+        write!(
+            f,
+            "{}\n{}\n{}\n\n{}'s turn\n{}{}",
+            opponent_store_str,
+            pocket_lines,
+            player_store_str,
+            self.board.player_turn,
+            stones_str,
+            state_str
+        )
     }
 }
