@@ -43,7 +43,8 @@ pub struct SequenceTree {
     pub nodes: Vec<SequenceNode>,
     /// The indices of the leaf nodes in the nodes vector; used to find the end of a sequence
     pub leaf_nodes: Vec<SequenceTreeIndex>,
-    /// The indices of the game over nodes in the nodes vector; used to find game ending sequences
+    /// The indices of the game over nodes in the nodes vector; used to find game ending
+    /// sequences, is a subset of leaf nodes
     pub game_over_nodes: Vec<SequenceTreeIndex>,
 }
 
@@ -197,17 +198,19 @@ impl SequenceTree {
     pub fn get_best_sequence(
         &self,
         eval_method: &EvalMethod,
+        // If prefer_win is true, will only search game over nodes if available, otherwise, will search all leaf nodes.
+        // Generally this should always be set to true except for testing purposes.
         prefer_win: bool,
-        maximize: bool,
+        player_side: &PlayerSide,
     ) -> Vec<PocketIndex> {
-        let mut best_sequence = Vec::new();
-        let mut best_evaluation = match maximize {
-            true => f32::NEG_INFINITY,
-            false => f32::INFINITY,
+        let mut best_move_index = 0;
+        let mut best_evaluation = match player_side {
+            PlayerSide::Player => f32::NEG_INFINITY,
+            PlayerSide::Opponent => f32::INFINITY,
         };
-        let comparison = match maximize {
-            true => f32::gt,
-            false => f32::lt,
+        let comparison = match player_side {
+            PlayerSide::Player => f32::gt,
+            PlayerSide::Opponent => f32::lt,
         };
         let filtered_leaf_nodes = match prefer_win {
             true => {
@@ -227,10 +230,10 @@ impl SequenceTree {
             let evaluation = evaluate(&game, eval_method);
             if comparison(&evaluation, &best_evaluation) {
                 best_evaluation = evaluation;
-                best_sequence = self.get_move_sequence(*index);
+                best_move_index = *index;
             }
         }
-        best_sequence
+        self.get_move_sequence(best_move_index)
     }
 }
 

@@ -12,8 +12,6 @@ pub mod test;
 fn main() {
     let mut game = Game::default();
     let mut stash = Game::default();
-    let mut tree = SequenceTree::new(game); // Check if game needs to be cloned
-    tree.generate_tree(PlayerSide::Player, None);
     // get user input
     //println!("{} nodes", tree.nodes.len());
     loop {
@@ -36,11 +34,10 @@ fn main() {
         println!("(L)oad Game");
         println!("(T)est Move");
         println!("(P)lay Move");
-        println!("(G)enerate Sequence Tree");
         println!("(F)ind best move");
         let mut input = String::new();
         print!("> ");
-        let _ = std::io::stdout().flush();
+        std::io::stdout().flush().unwrap();
         std::io::stdin().read_line(&mut input).unwrap();
         let input = input.trim().to_lowercase();
         match input.as_str() {
@@ -55,6 +52,7 @@ fn main() {
                 println!("Enter the player side pockets:");
                 let mut input = String::new();
                 print!("> ");
+                std::io::stdout().flush().unwrap();
                 std::io::stdin().read_line(&mut input).unwrap();
                 let input = input.trim().to_lowercase();
                 let player_pockets: [i32; 7] = input
@@ -66,6 +64,7 @@ fn main() {
                 println!("Enter the opponent side pockets:");
                 let mut input = String::new();
                 print!("> ");
+                std::io::stdout().flush().unwrap();
                 std::io::stdin().read_line(&mut input).unwrap();
                 let input = input.trim().to_lowercase();
                 let opponent_pockets: [i32; 7] = input
@@ -77,6 +76,7 @@ fn main() {
                 println!("Select current player turn: \n1: Player\n2: Opponent");
                 let mut input = String::new();
                 print!("> ");
+                std::io::stdout().flush().unwrap();
                 std::io::stdin().read_line(&mut input).unwrap();
                 // let trimmed_input = input.trim().to_lowercase().as_str();
                 let player_turn: PlayerSide = match input.trim().to_lowercase().as_str() {
@@ -103,6 +103,7 @@ fn main() {
                 println!("Enter the pocket to test:");
                 let mut input = String::new();
                 print!("> ");
+                std::io::stdout().flush().unwrap();
                 std::io::stdin().read_line(&mut input).unwrap();
                 let input = input.trim().to_lowercase();
                 match input.parse::<usize>() {
@@ -119,6 +120,7 @@ fn main() {
                 println!("Enter the pocket to play:");
                 let mut input = String::new();
                 print!("> ");
+                std::io::stdout().flush().unwrap();
                 std::io::stdin().read_line(&mut input).unwrap();
                 let input = input.trim().to_lowercase();
                 match input.parse::<usize>() {
@@ -131,15 +133,17 @@ fn main() {
                     }
                 }
             }
-            "g" => {
-                println!("Generating sequence tree...");
-                tree = SequenceTree::new(game);
-                tree.generate_tree(PlayerSide::Player, None);
-            }
             "f" => {
+                println!("Generating sequence tree...");
+                let mut tree = SequenceTree::new(game);
+                tree.generate_tree(game.board.player_turn, None);
                 let mut test_game = game;
                 println!("Finding best move...");
-                let best_sequence = tree.get_best_sequence(&EvalMethod::ByDifference, true, true);
+                let best_sequence = tree.get_best_sequence(
+                    &EvalMethod::ByDifference,
+                    true,
+                    &test_game.board.player_turn,
+                );
                 for pocket in best_sequence {
                     print!("{} ", pocket);
                     test_game
