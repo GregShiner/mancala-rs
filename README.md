@@ -46,6 +46,20 @@ Below are the available functions in the menu.
 Player's turn
 Game state: InProgress
 ```
+The pockets displayed are each numbered. The "Player Side" is the left side pockets and the bottom score pocket. The "Opponent Side" is the right side pockets and the top score pocket.
+The pockets are numbered starting at 0 on each side, going counter clockwise.
+The numbers start for the player side at the top left side pocket, while the numbers for the opponent side pocket start at the bottom right.
+Below is the layout of the board with each pocket numbered. The player side numbers are prefixed with "p" and the opponent side numbers with "o"
+```
+           o6
+      p0        o5
+      p1        o4
+      p2        o3
+      p3        o2
+      p4        o1
+      p5        o0
+           p6
+```
 2. (R)eset Game: Resets the game to the default state (all side pockets filled with 4 stones)
 3. (M)anually Enter Board State: Allows the user to manually enter the state of an existing game. The user will first need to enter the number of stones in each of the pockets on their side and their score pocket, each seperated by a space. Then they will be prompted to do the same for the opponent's side. The order of the pockets goes in counter-clockwise order, starting at the position furthest away from the player. Finally, they will be asked which player's turn it is. For example:
 ```
@@ -98,7 +112,7 @@ Game state: Over(TechnicalWin(Player))
 This means that the player should first play pocket 2 (the 3rd one down from the top left), then 5 (the bottom left), then 4, 2, and so on until the last move of playing pocket 4. Each of these moves, except for the last one will always result in a free turn.
 # Algorithm
 The principle observation made to develop this algorithm is that a single turn can consist of many individual moves by chaining together free turns.
-The algorithm is a greedy algorithm that finds the sequence of moves that results in the greatest number of points scored in a single turn.
+The algorithm finds the sequence of free moves that results in the greatest number of points scored in a single turn.
 The program recursively builds a tree of moves that can be made in a single turn.
 The algorithm stops recursing in one of two base cases:
 1. The move ends the players turn
@@ -107,4 +121,4 @@ The algorithm stops recursing in one of two base cases:
     b. Considering the technical win as a leaf node was a massive performance optimization. At each game state, there are up to 6 legal moves that can be played. This means that at each level in the tree, the number of nodes grows by up to 6x the size of the previous one. This leads to a very rapid growth of the game tree. For example, starting out at the default state, without this optimization, there are 36,411 game states in the search tree, whereas with this optimization, this gets reduced down to only 9,513.
 After the move tree is constructed, the alorithm searches through the leaf nodes for the one with the best evaluation. (Evaluation is generalized here to allow for other evaluation functions and algorithms to be tested. In this case though, it simply uses the difference between the 2 scores of the players)
 Note that in this algorithm, the evaluation of a sequence is determined only by the evaluation of the final state, so only the leaf nodes need to be evaluated.
-Then the move sequence is reconstructed by following the path from the maximal leaf node up to the root.
+Finally the move sequence is reconstructed by following the path from the maximal leaf node up to the root.
